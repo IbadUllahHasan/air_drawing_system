@@ -160,16 +160,16 @@ while True:
 
     cv2.putText(img,
                 f"FPS: {int(fps)}",
-                (1000, 40),
+                (400, 60),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                1,
+                0.5,
                 (0, 255, 0),
                 2)
 
 
     cv2.putText(img,
                 f"MODE: {mode}",
-                (450, 40),
+                (400, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
                 (255, 255, 255),
