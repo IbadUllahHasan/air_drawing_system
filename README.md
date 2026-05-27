@@ -1,6 +1,3 @@
-Gesture-Based Air Drawing System
-
-A real-time gesture-controlled air drawing application built using Python, OpenCV, and MediaPipe.
 
 # Gesture-Based Air Drawing System 🎨✋
 
@@ -256,4 +253,4 @@ The biggest learning came not from tutorials, but from:
 * experimenting
 * modifying features
 * solving real implementation problems
-.
+
