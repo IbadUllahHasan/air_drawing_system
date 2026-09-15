@@ -29,11 +29,49 @@ mode = "IDLE"
 
 prev_time = 0
 
+TOOLBAR_HEIGHT = 70
+SWATCH_TOP, SWATCH_BOTTOM = 10, 60
+SWATCH_WIDTH = 70
+SWATCH_GAP = 20
+SWATCH_START_X = 20
+TOOLBAR_COLORS = [
+    (255, 0, 255),  # purple
+    (0, 255, 0),    # green
+    (0, 0, 255),    # red
+]
+
+
 def finger_up(hand_landmarks, tip_id):
     tip_y = hand_landmarks.landmark[tip_id].y
     lower_y = hand_landmarks.landmark[tip_id - 2].y
 
     return tip_y < lower_y
+
+
+def build_toolbar(frame_width):
+    """Lay out color/eraser swatches left-to-right, dropping any that
+    would not fit inside the current frame instead of overflowing it."""
+    swatches = []
+    x = SWATCH_START_X
+
+    for color in TOOLBAR_COLORS:
+        x2 = x + SWATCH_WIDTH
+        if x2 > frame_width - 10:
+            return swatches
+        swatches.append({
+            "x1": x, "y1": SWATCH_TOP, "x2": x2, "y2": SWATCH_BOTTOM,
+            "color": color, "is_eraser": False,
+        })
+        x = x2 + SWATCH_GAP
+
+    eraser_x2 = x + SWATCH_WIDTH + 20
+    if eraser_x2 <= frame_width - 10:
+        swatches.append({
+            "x1": x, "y1": SWATCH_TOP, "x2": eraser_x2, "y2": SWATCH_BOTTOM,
+            "color": (255, 255, 255), "is_eraser": True,
+        })
+
+    return swatches
 
 while True:
 
@@ -50,17 +88,16 @@ while True:
         canvas = np.zeros_like(img)
 
 
-    cv2.rectangle(img, (0, 0), (1280, 70), (50, 50, 50), -1)
+    toolbar = build_toolbar(w)
 
+    cv2.rectangle(img, (0, 0), (w, TOOLBAR_HEIGHT), (50, 50, 50), -1)
 
-    cv2.rectangle(img, (20, 10), (90, 60), (255, 0, 255), -1)
-    cv2.rectangle(img, (110, 10), (180, 60), (0, 255, 0), -1)
-    cv2.rectangle(img, (200, 10), (270, 60), (0, 0, 255), -1)
-
-
-    cv2.rectangle(img, (290, 10), (380, 60), (255, 255, 255), -1)
-    cv2.putText(img, "ERASE", (300, 45),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+    for swatch in toolbar:
+        cv2.rectangle(img, (swatch["x1"], swatch["y1"]),
+                       (swatch["x2"], swatch["y2"]), swatch["color"], -1)
+        if swatch["is_eraser"]:
+            cv2.putText(img, "ERASE", (swatch["x1"] + 10, swatch["y2"] - 15),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
 
 
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -119,22 +156,16 @@ while True:
 
                 prev_x, prev_y = 0, 0
 
-                # Color selection
-                if 20 < smooth_x < 90 and 10<smooth_y< 60:
-                    brush_color = (255, 0, 255)
-                    brush_thickness = draw_thickness
-
-                elif 110 < smooth_x < 180 and 10<smooth_y< 60:
-                    brush_color = (0, 255, 0)
-                    brush_thickness = draw_thickness
-
-                elif 200 < smooth_x < 270 and 10<smooth_y< 60:
-                    brush_color = (0, 0, 255)
-                    brush_thickness = draw_thickness
-
-                elif 290 < smooth_x < 380 and 10<smooth_y< 60:
-                    brush_color = (0, 0, 0)
-                    brush_thickness = eraser_thickness
+                # Color/eraser selection
+                for swatch in toolbar:
+                    if swatch["x1"] < smooth_x < swatch["x2"] and swatch["y1"] < smooth_y < swatch["y2"]:
+                        if swatch["is_eraser"]:
+                            brush_color = (0, 0, 0)
+                            brush_thickness = eraser_thickness
+                        else:
+                            brush_color = swatch["color"]
+                            brush_thickness = draw_thickness
+                        break
 
 
             else:
@@ -162,9 +193,12 @@ while True:
 
     prev_time = current_time
 
+    toolbar_end = toolbar[-1]["x2"] if toolbar else SWATCH_START_X
+    status_x = min(toolbar_end + 20, max(w - 200, 0))
+
     cv2.putText(img,
                 f"FPS: {int(fps)}",
-                (400, 60),
+                (status_x, 60),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.5,
                 (0, 255, 0),
@@ -173,7 +207,7 @@ while True:
 
     cv2.putText(img,
                 f"MODE: {mode}",
-                (400, 40),
+                (status_x, 40),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
                 (255, 255, 255),
