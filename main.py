@@ -22,6 +22,7 @@ smooth_x, smooth_y = 0, 0
 
 brush_color = (255, 0, 255)
 brush_thickness = 5
+draw_thickness = brush_thickness
 eraser_thickness = 40
 
 mode = "IDLE"
@@ -121,12 +122,15 @@ while True:
                 # Color selection
                 if 20 < smooth_x < 90 and 10<smooth_y< 60:
                     brush_color = (255, 0, 255)
+                    brush_thickness = draw_thickness
 
                 elif 110 < smooth_x < 180 and 10<smooth_y< 60:
                     brush_color = (0, 255, 0)
+                    brush_thickness = draw_thickness
 
                 elif 200 < smooth_x < 270 and 10<smooth_y< 60:
                     brush_color = (0, 0, 255)
+                    brush_thickness = draw_thickness
 
                 elif 290 < smooth_x < 380 and 10<smooth_y< 60:
                     brush_color = (0, 0, 0)
@@ -194,11 +198,19 @@ while True:
 
     if key == ord('+'):# Thickness increase
         brush_thickness += 1
+        if brush_color == (0, 0, 0):
+            eraser_thickness = brush_thickness
+        else:
+            draw_thickness = brush_thickness
 
 
 
     if key == ord('-'): # Thickness decrease
         brush_thickness = max(1, brush_thickness - 1)
+        if brush_color == (0, 0, 0):
+            eraser_thickness = brush_thickness
+        else:
+            draw_thickness = brush_thickness
 
 
 
