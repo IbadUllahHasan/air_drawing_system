@@ -40,16 +40,27 @@ mode = "IDLE"
 
 prev_time = 0
 
-TOOLBAR_HEIGHT = 70
-SWATCH_TOP, SWATCH_BOTTOM = 10, 60
-SWATCH_WIDTH = 70
-SWATCH_GAP = 20
-SWATCH_START_X = 20
+TOOLBAR_HEIGHT = 74
+SWATCH_RADIUS = 26
+SWATCH_GAP = 22
+SWATCH_START_X = 46  # center x of the first swatch
+SWATCH_CENTER_Y = TOOLBAR_HEIGHT // 2
 TOOLBAR_COLORS = [
     (255, 0, 255),  # purple
     (0, 255, 0),    # green
     (0, 0, 255),    # red
 ]
+ERASER_SWATCH_COLOR = (235, 235, 235)
+
+PANEL_COLOR = (32, 32, 38)
+PANEL_ALPHA = 0.82
+
+MODE_COLORS = {
+    "DRAW": (0, 220, 0),
+    "SELECT": (0, 200, 255),
+    "IDLE": (150, 150, 150),
+    "BOX FILTER": (255, 120, 255),
+}
 
 # Left-hand pinch (thumb tip to index tip, in pixels) mapped to brush width
 PINCH_MIN_DIST = 25
@@ -79,6 +90,29 @@ def pinch_to_thickness(distance):
     return int(PINCH_THICKNESS_MIN + ratio * (PINCH_THICKNESS_MAX - PINCH_THICKNESS_MIN))
 
 
+def draw_rounded_rect(img, pt1, pt2, radius, color, thickness=-1):
+    x1, y1 = pt1
+    x2, y2 = pt2
+    line_type = cv2.LINE_AA
+
+    if thickness < 0:
+        cv2.rectangle(img, (x1 + radius, y1), (x2 - radius, y2), color, -1)
+        cv2.rectangle(img, (x1, y1 + radius), (x2, y2 - radius), color, -1)
+        for cx, cy in ((x1 + radius, y1 + radius), (x2 - radius, y1 + radius),
+                       (x1 + radius, y2 - radius), (x2 - radius, y2 - radius)):
+            cv2.circle(img, (cx, cy), radius, color, -1, line_type)
+        return
+
+    cv2.line(img, (x1 + radius, y1), (x2 - radius, y1), color, thickness, line_type)
+    cv2.line(img, (x1 + radius, y2), (x2 - radius, y2), color, thickness, line_type)
+    cv2.line(img, (x1, y1 + radius), (x1, y2 - radius), color, thickness, line_type)
+    cv2.line(img, (x2, y1 + radius), (x2, y2 - radius), color, thickness, line_type)
+    cv2.ellipse(img, (x1 + radius, y1 + radius), (radius, radius), 180, 0, 90, color, thickness, line_type)
+    cv2.ellipse(img, (x2 - radius, y1 + radius), (radius, radius), 270, 0, 90, color, thickness, line_type)
+    cv2.ellipse(img, (x1 + radius, y2 - radius), (radius, radius), 90, 0, 90, color, thickness, line_type)
+    cv2.ellipse(img, (x2 - radius, y2 - radius), (radius, radius), 0, 0, 90, color, thickness, line_type)
+
+
 def apply_cartoon_filter(region):
     gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
     gray = cv2.medianBlur(gray, 5)
@@ -89,26 +123,25 @@ def apply_cartoon_filter(region):
 
 
 def build_toolbar(frame_width):
-    """Lay out color/eraser swatches left-to-right, dropping any that
-    would not fit inside the current frame instead of overflowing it."""
+    """Lay out color/eraser swatches left-to-right as circles, dropping any
+    that would not fit inside the current frame instead of overflowing it."""
     swatches = []
-    x = SWATCH_START_X
+    cx = SWATCH_START_X
+    step = 2 * SWATCH_RADIUS + SWATCH_GAP
 
     for color in TOOLBAR_COLORS:
-        x2 = x + SWATCH_WIDTH
-        if x2 > frame_width - 10:
+        if cx + SWATCH_RADIUS > frame_width - 10:
             return swatches
         swatches.append({
-            "x1": x, "y1": SWATCH_TOP, "x2": x2, "y2": SWATCH_BOTTOM,
+            "cx": cx, "cy": SWATCH_CENTER_Y, "radius": SWATCH_RADIUS,
             "color": color, "is_eraser": False,
         })
-        x = x2 + SWATCH_GAP
+        cx += step
 
-    eraser_x2 = x + SWATCH_WIDTH + 20
-    if eraser_x2 <= frame_width - 10:
+    if cx + SWATCH_RADIUS <= frame_width - 10:
         swatches.append({
-            "x1": x, "y1": SWATCH_TOP, "x2": eraser_x2, "y2": SWATCH_BOTTOM,
-            "color": (255, 255, 255), "is_eraser": True,
+            "cx": cx, "cy": SWATCH_CENTER_Y, "radius": SWATCH_RADIUS,
+            "color": ERASER_SWATCH_COLOR, "is_eraser": True,
         })
 
     return swatches
@@ -133,14 +166,30 @@ try:
 
         toolbar = build_toolbar(w)
 
-        cv2.rectangle(img, (0, 0), (w, TOOLBAR_HEIGHT), (50, 50, 50), -1)
+        panel = img.copy()
+        cv2.rectangle(panel, (0, 0), (w, TOOLBAR_HEIGHT), PANEL_COLOR, -1)
+        img = cv2.addWeighted(panel, PANEL_ALPHA, img, 1 - PANEL_ALPHA, 0)
+        cv2.line(img, (0, TOOLBAR_HEIGHT), (w, TOOLBAR_HEIGHT),
+                 brush_color, 3, cv2.LINE_AA)
 
         for swatch in toolbar:
-            cv2.rectangle(img, (swatch["x1"], swatch["y1"]),
-                           (swatch["x2"], swatch["y2"]), swatch["color"], -1)
+            cx, cy, radius = swatch["cx"], swatch["cy"], swatch["radius"]
+
+            cv2.circle(img, (cx + 2, cy + 3), radius, (12, 12, 12), -1, cv2.LINE_AA)
+            cv2.circle(img, (cx, cy), radius, swatch["color"], -1, cv2.LINE_AA)
+            cv2.circle(img, (cx, cy), radius, (15, 15, 15), 1, cv2.LINE_AA)
+
+            is_active = (
+                (swatch["is_eraser"] and brush_color == (0, 0, 0)) or
+                (not swatch["is_eraser"] and swatch["color"] == brush_color)
+            )
+            if is_active:
+                cv2.circle(img, (cx, cy), radius + 5, (255, 255, 255), 2, cv2.LINE_AA)
+
             if swatch["is_eraser"]:
-                cv2.putText(img, "ERASE", (swatch["x1"] + 10, swatch["y2"] - 15),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+                r = radius - 10
+                cv2.line(img, (cx - r, cy - r), (cx + r, cy + r), (100, 100, 100), 3, cv2.LINE_AA)
+                cv2.line(img, (cx - r, cy + r), (cx + r, cy - r), (100, 100, 100), 3, cv2.LINE_AA)
 
 
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -186,7 +235,7 @@ try:
                     prev_x, prev_y = 0, 0
 
                     img[y1:y2, x1:x2] = apply_cartoon_filter(img[y1:y2, x1:x2])
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (255, 255, 255), 2)
+                    draw_rounded_rect(img, (x1, y1), (x2, y2), 10, (255, 120, 255), 2)
 
         # Left hand: pinch (thumb tip to index tip) resizes whichever
         # tool is currently active, live, replacing the +/- keys.
@@ -210,10 +259,9 @@ try:
             smooth_x = int((smooth_x + x) / 2)
             smooth_y = int((smooth_y + y) / 2)
 
-            cv2.circle(img, (smooth_x, smooth_y),
-                       brush_thickness,
-                       brush_color,
-                       -1)
+            cv2.circle(img, (smooth_x, smooth_y), brush_thickness,
+                       brush_color, 2, cv2.LINE_AA)
+            cv2.circle(img, (smooth_x, smooth_y), 2, brush_color, -1, cv2.LINE_AA)
 
             index_up = finger_up(right_hand, 8)
             middle_up = finger_up(right_hand, 12)
@@ -242,7 +290,9 @@ try:
 
                 # Color/eraser selection
                 for swatch in toolbar:
-                    if swatch["x1"] < smooth_x < swatch["x2"] and swatch["y1"] < smooth_y < swatch["y2"]:
+                    dx = smooth_x - swatch["cx"]
+                    dy = smooth_y - swatch["cy"]
+                    if dx * dx + dy * dy <= swatch["radius"] ** 2:
                         if swatch["is_eraser"]:
                             brush_color = (0, 0, 0)
                             brush_thickness = eraser_thickness
@@ -275,25 +325,33 @@ try:
 
         prev_time = current_time
 
-        toolbar_end = toolbar[-1]["x2"] if toolbar else SWATCH_START_X
-        status_x = min(toolbar_end + 20, max(w - 200, 0))
+        toolbar_end = (toolbar[-1]["cx"] + toolbar[-1]["radius"]) if toolbar else SWATCH_START_X
 
-        cv2.putText(img,
-                    f"FPS: {int(fps)}",
-                    (status_x, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 255, 0),
-                    2)
+        preview_cx = toolbar_end + 40
+        preview_radius = min(max(brush_thickness // 2, 3), 26)
 
+        pill_w, pill_h = 190, 46
+        pill_x1 = preview_cx + preview_radius + 20
+        pill_y1 = (TOOLBAR_HEIGHT - pill_h) // 2
+        pill_x2 = pill_x1 + pill_w
+        pill_y2 = pill_y1 + pill_h
 
-        cv2.putText(img,
-                    f"MODE: {mode}",
-                    (status_x, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (255, 255, 255),
-                    2)
+        if pill_x2 <= w - 10:
+            cv2.circle(img, (preview_cx, SWATCH_CENTER_Y), preview_radius,
+                       brush_color, -1, cv2.LINE_AA)
+            cv2.circle(img, (preview_cx, SWATCH_CENTER_Y), preview_radius,
+                       (230, 230, 230), 1, cv2.LINE_AA)
+
+            draw_rounded_rect(img, (pill_x1, pill_y1), (pill_x2, pill_y2), 12, (22, 22, 26))
+
+            dot_color = MODE_COLORS.get(mode, (200, 200, 200))
+            cv2.circle(img, (pill_x1 + 16, pill_y1 + pill_h // 2), 6,
+                       dot_color, -1, cv2.LINE_AA)
+
+            cv2.putText(img, mode, (pill_x1 + 32, pill_y1 + 21),
+                        cv2.FONT_HERSHEY_DUPLEX, 0.55, (240, 240, 240), 1, cv2.LINE_AA)
+            cv2.putText(img, f"{int(fps)} FPS", (pill_x1 + 32, pill_y1 + 38),
+                        cv2.FONT_HERSHEY_DUPLEX, 0.42, (140, 220, 150), 1, cv2.LINE_AA)
 
 
 
