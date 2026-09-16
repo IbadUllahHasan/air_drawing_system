@@ -124,12 +124,13 @@ Displays live performance metrics:
 
 ## 🖥️ Interactive Toolbar UI
 
-Includes:
-
-* color selection
-* eraser tool
-* mode indicators
-* real-time visual feedback
+* Floating frosted-glass panels — the camera image behind each panel is blurred and tinted, rather than covered by a flat bar
+* TrueType text rendered through Pillow (falls back gracefully across Windows/macOS/Linux font paths)
+* Dwell-to-select with a progress ring, so tools aren't picked by accident
+* Hover and selection animation, plus an active-tool ring
+* Live brush-size gauge, mode indicator, and FPS readout
+* On-screen toast notifications for save/clear/tool changes
+* Resizable window, fullscreen toggle, and a UI that scales with the frame size
 
 ---
 
@@ -139,6 +140,7 @@ Includes:
 * OpenCV
 * MediaPipe
 * NumPy
+* Pillow (TrueType text rendering)
 
 ---
 
@@ -201,9 +203,29 @@ python main.py
 | ----- | -------------------------------------- |
 | `C`   | Clear Canvas                          |
 | `S`   | Save Drawing (`drawing.png`)          |
+| `H`   | Toggle hand-tracking overlay          |
+| `F`   | Toggle fullscreen                     |
 | `ESC` | Exit Program                          |
 | `+`   | Increase Brush Size (manual fallback) |
 | `-`   | Decrease Brush Size (manual fallback) |
+
+## Command-line options
+
+The window is freely resizable by dragging its edge, and you can set the
+camera, capture resolution, and starting window size at launch:
+
+```bash
+python main.py --camera 1 --width 1920 --height 1080 --window 960x540
+python main.py --fullscreen
+```
+
+| Flag         | Default    | Purpose                        |
+| ------------ | ---------- | ------------------------------ |
+| `--camera`   | `0`        | Camera device index            |
+| `--width`    | `1280`     | Requested capture width        |
+| `--height`   | `720`      | Requested capture height       |
+| `--window`   | `1280x720` | Initial window size (`WxH`)    |
+| `--fullscreen` | off      | Start in fullscreen            |
 
 ---
 
@@ -212,7 +234,8 @@ python main.py
 ## 1. Get set up
 
 * Sit facing your webcam in reasonably even lighting, with your hand(s) fully inside the frame.
-* Run `python main.py`. A window titled **"Air Drawing"** opens showing your mirrored camera feed with a toolbar across the top.
+* Run `python main.py`. A resizable window titled **"Air Drawing"** opens showing your mirrored camera feed with a floating toolbar. Drag the window edge to resize it, or press `F` for fullscreen.
+* A hint bar along the bottom lists the shortcuts for the first few seconds.
 * Press `ESC` any time to quit — the camera is always released cleanly on exit.
 
 ## 2. Draw with your right hand
@@ -227,10 +250,12 @@ The current mode and live FPS are shown in the top-right of the window.
 
 ## 3. Pick a color or the eraser
 
-While in `SELECT` mode (index + middle up), hover your fingertip over a toolbar swatch:
+While in `SELECT` mode (index + middle up), hold your fingertip over a toolbar swatch. A ring fills around it as you hover — once it completes (about half a second), the tool is selected and a toast confirms it. This **dwell-to-select** delay is deliberate: it stops you from grabbing a tool by accident while moving your hand across the toolbar.
 
-* **Purple / Green / Red** squares — switch the draw brush to that color
-* **ERASE** box — switch to the eraser (uses a separate, larger thickness so it doesn't affect your draw brush size)
+* **Magenta / Green / Red** circles — switch the draw brush to that color
+* **Eraser** circle — switch to the eraser (uses a separate, larger thickness so it doesn't affect your draw brush size)
+
+The active tool is marked with a white ring, and the gauge on the right of the toolbar shows your current brush size against its maximum.
 
 ## 4. Resize the brush with your left hand
 
