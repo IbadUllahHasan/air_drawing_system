@@ -7,6 +7,14 @@ This project allows users to draw in the air using only hand gestures captured t
 
 ---
 
+# 🖼️ Screenshot
+
+![Air Drawing UI overview](screenshots/ui_overview.png)
+
+*This is a rendered mockup of the current UI (frosted toolbar, dwell-select ring, live cursor, status pill, toast) built by driving the actual rendering code against a synthetic background — not a live webcam capture. The three photos in `screenshots/` below are real captures, but from an earlier version of the UI before the frosted-glass redesign; they're kept for history but no longer reflect the current look.*
+
+---
+
 # 🚀 Features
 
 ## ✋ Real-Time Hand Tracking
@@ -113,6 +121,14 @@ to clear the drawing canvas.
 
 ---
 
+## ↩️ Undo / Redo
+
+* `Z` undoes the last stroke; `Y` redoes it
+* Clearing the canvas (`C`) is itself one undoable action — `Z` right after a clear brings everything back at once
+* Drawing is tracked as a list of strokes (points + color + thickness), not raw pixels, so undo/redo replays that history instead of storing pixel snapshots
+
+---
+
 ## ⚡ FPS Counter
 
 Displays live performance metrics:
@@ -149,17 +165,29 @@ Displays live performance metrics:
 ```bash
 air-drawing-system/
 │
-├── main.py
+├── main.py            # CLI + the frame loop: wires everything below together
+├── gestures.py         # Pure hand-landmark helpers (finger state, pinch mapping)
+├── filters.py           # Image effects (the box-filter cartoon effect)
+├── canvas.py            # Stroke-based drawing surface with undo/redo
+├── ui.py                 # Rendering: fonts, frosted panels, toolbar, HUD, toasts
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
 ├── LICENSE
 │
 ├── screenshots/
-│   ├── Draw Mode.png
+│   ├── ui_overview.png    # current UI (rendered mockup, see above)
+│   ├── Draw Mode.png       # earlier UI, kept for history
 │   ├── Idle Mode.png
 │   ├── Select Mode.png
 ```
+
+Each module has one job: `gestures.py` and `filters.py` have no dependency
+on each other or on the app's state — they're plain functions over
+landmarks/pixels. `canvas.py` owns drawing state and knows nothing about
+rendering. `ui.py` only knows how to draw what it's handed; it doesn't
+know what a gesture is. `main.py` is the only place that ties hand
+tracking, canvas state, and rendering together into a frame loop.
 
 ---
 
@@ -202,12 +230,18 @@ python main.py
 | Key   | Function                              |
 | ----- | -------------------------------------- |
 | `C`   | Clear Canvas                          |
+| `Z`   | Undo                                  |
+| `Y`   | Redo                                  |
 | `S`   | Save Drawing (`drawing.png`)          |
 | `H`   | Toggle hand-tracking overlay          |
 | `F`   | Toggle fullscreen                     |
 | `ESC` | Exit Program                          |
 | `+`   | Increase Brush Size (manual fallback) |
 | `-`   | Decrease Brush Size (manual fallback) |
+
+Undo/redo use bare `Z`/`Y` rather than `Ctrl+Z`/`Ctrl+Y` — OpenCV's
+`waitKey` doesn't reliably report modifier keys across platforms, so
+every shortcut in this app is a single bare key.
 
 ## Command-line options
 
@@ -270,10 +304,11 @@ This adjusts whichever tool is currently active (draw brush or eraser) and updat
 
 Raise **index + middle finger on both hands at once**. A rectangle is drawn between your two index fingertips and a live cartoon/edge filter is applied inside it — move your hands to move and resize the filtered region. Drop either hand's pose to turn it off. Anything already drawn stays visible on top of the filtered area.
 
-## 6. Save or clear your work
+## 6. Undo, redo, save, or clear your work
 
+* Press `Z` to undo the last stroke, `Y` to redo it.
+* Press `C` to clear the canvas — this is itself undoable, so `Z` immediately after brings everything back.
 * Press `S` to save the current canvas to `drawing.png` in the project folder.
-* Press `C` to wipe the canvas and start over.
 
 ---
 
@@ -304,9 +339,9 @@ A separate digital canvas stores all drawing strokes and is composited over the 
 # 🔮 Future Improvements
 
 * Shape recognition (snap freehand strokes to clean circles/rectangles/lines)
-* Undo/Redo system
 * Virtual mouse control
 * More box-filter effects (grayscale, thermal colormap, invert) with a way to cycle between them
+* Automated tests for the pure logic in `gestures.py` and `canvas.py`, plus CI
 
 ---
 
