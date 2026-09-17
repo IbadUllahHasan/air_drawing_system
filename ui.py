@@ -33,6 +33,7 @@ ERASER_SWATCH_COLOR = (238, 238, 242)
 
 MODE_COLORS = {
     "DRAW": (90, 230, 120),
+    "LIFT": (230, 190, 90),
     "SELECT": (255, 200, 60),
     "IDLE": (150, 150, 165),
     "BOX FILTER": (255, 120, 255),

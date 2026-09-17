@@ -166,18 +166,24 @@ def main():
                 bar_bottom = layout["rect"][3] if layout else 0
 
                 if index_up and not middle_up:
-                    mode = "DRAW"
                     hover_idx, hover_locked = None, False
 
-                    if smooth_y > bar_bottom:
+                    # Pinky up (index + pinky, middle down -- the "spider-man"
+                    # gesture) lifts the pen: the cursor keeps tracking but
+                    # nothing is drawn, so you can reposition before the next
+                    # stroke without a connecting line back to where you were.
+                    pinky_up = finger_up(right_hand, 20)
+                    mode = "LIFT" if pinky_up else "DRAW"
+
+                    if pinky_up or smooth_y <= bar_bottom:
+                        canvas.end_stroke()
+                        prev_x, prev_y = 0, 0
+                    else:
                         if prev_x == 0 and prev_y == 0:
                             canvas.begin_stroke(smooth_x, smooth_y, brush_color, brush_thickness)
                         else:
                             canvas.extend_stroke(smooth_x, smooth_y)
                         prev_x, prev_y = smooth_x, smooth_y
-                    else:
-                        canvas.end_stroke()
-                        prev_x, prev_y = 0, 0
 
                 elif index_up and middle_up:
                     mode = "SELECT"

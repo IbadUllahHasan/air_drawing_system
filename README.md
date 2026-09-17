@@ -33,6 +33,15 @@ This project allows users to draw in the air using only hand gestures captured t
 
 ---
 
+## 🤘 Pen Lift
+
+* Raise your **pinky** alongside your index finger (middle finger stays down) to lift the pen — like a real pen off paper
+* The cursor keeps tracking your fingertip, but nothing is drawn while lifted
+* Put the pinky back down to start a brand-new stroke wherever your hand is — no line connects back to where you lifted
+* Lets you reposition mid-drawing without fully closing your hand or switching to `SELECT` mode
+
+---
+
 ## 🧠 Gesture Recognition
 
 The **right hand** drives drawing. Different gestures activate different modes:
@@ -40,6 +49,7 @@ The **right hand** drives drawing. Different gestures activate different modes:
 | Gesture                     | Action         |
 | --------------------------- | -------------- |
 | ☝️ Index Finger Up          | Draw Mode      |
+| 🤘 Index + Pinky Up (middle down) | Lift Mode — reposition without drawing |
 | ✌️ Index + Middle Finger Up | Selection Mode |
 | ✊ Fist                      | Idle Mode      |
 
@@ -277,10 +287,11 @@ python main.py --fullscreen
 | Do this                         | What happens                |
 | -------------------------------- | ---------------------------- |
 | Raise only your **index finger** | `DRAW` mode — a colored line follows your fingertip |
+| Raise **index + pinky** (🤘, middle down) | `LIFT` mode — cursor moves freely, nothing is drawn |
 | Raise **index + middle** finger  | `SELECT` mode — move over the toolbar to pick a tool, nothing is drawn |
 | Close your hand / drop your fingers | `IDLE` mode — tracking pauses, no drawing |
 
-The current mode and live FPS are shown in the top-right of the window.
+The current mode and live FPS are shown in the top-right of the window. Each mode has its own color there and on the cursor, so `LIFT` is visually distinct from `DRAW` at a glance.
 
 ## 3. Pick a color or the eraser
 
